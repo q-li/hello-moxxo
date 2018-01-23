@@ -11,8 +11,16 @@ import (
 
 var rootURL *url.URL
 
+// When no element found in [URL|Doc]Queue, sleeps for idleTime before try again
 const idleTime = time.Duration(1) * time.Second
+
+// If have tried with empty queue for more than emptyThshld times,
+// considers the jobs related are done
 const emptyThshld = 3
+
+// Number of web page crawlers,
+// for this solution, number of page parsers could only be 1,
+// otherwise would need to also synchronize on site.(SiteMap)
 const numCrawler = 5
 
 func main() {
@@ -39,6 +47,8 @@ func main() {
 	site.DumpToFile("hello-monzo.out")
 }
 
+// Crawls a web page pointed by a URL fetched from urlQ,
+// puts the pointer to retrieved HTML file into docQ
 func crawler(urlQ *URLQueue, docQ *DocQueue, wg *sync.WaitGroup) {
 	empty := 0
 	for {
@@ -66,6 +76,9 @@ func crawler(urlQ *URLQueue, docQ *DocQueue, wg *sync.WaitGroup) {
 	fmt.Println("[crawler] quits!")
 }
 
+// Parses a web page,
+// puts any internal, not-visited URLs into urlQ,
+// meanwhile records the relation of parent URL -> parsed child URL
 func parser(docQ *DocQueue, urlQ *URLQueue, site *SiteMap, wg *sync.WaitGroup) {
 	empty := 0
 	for {
@@ -99,6 +112,8 @@ func parser(docQ *DocQueue, urlQ *URLQueue, site *SiteMap, wg *sync.WaitGroup) {
 	fmt.Println("[parser] quits!")
 }
 
+// Checks wheter rawurl is an internal URL,
+// when a relative path is found, resolves it again the root path
 func ofSameDomain(rawurl string) (*url.URL, bool) {
 	rawURL, err := url.Parse(rawurl)
 	if err != nil {
@@ -112,6 +127,7 @@ func ofSameDomain(rawurl string) (*url.URL, bool) {
 	return rawURL, rawURL.Hostname() == rootURL.Hostname()
 }
 
+// Monitors the growth of docQ and urlQ
 func monitor(docQ *DocQueue, urlQ *URLQueue) {
 	for {
 		now := time.Now().Format(time.Stamp)
